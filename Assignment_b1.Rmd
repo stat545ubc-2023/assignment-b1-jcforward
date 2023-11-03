@@ -1,0 +1,102 @@
+---
+title: "Function-b1"
+author: "James Forward"
+date: "2023-11-01"
+output: md_document
+Roxygen: list(markdown = TRUE)
+---
+
+```{r setup, include=FALSE}
+library(datateachr)
+library(tidyverse)
+library(palmerpenguins)
+library(dplyr)
+library(testthat)
+```
+### Exercise 1 + 2: Make a Function + Document your Function
+
+- I made a function that allows me to take the data frame 'penguins' and create a new data frame with the mean values of specified measurements for each species. 
+
+```{r}
+
+#' Summarize Measurements by Species
+#'
+#' This function returns a summarized data frame with mean measurements grouped by species. 
+#' The user can specify which variables to summarize.
+#'
+#' @param data A data frame containing at least a "species" column and columns specified in `summary_vars`.
+#' @param summary_vars A character vector indicating which columns in `data` to summarize. 
+#'                     Default is c("bill_length_mm", "flipper_length_mm", "body_mass_g").
+#' @param ... Additional arguments passed on to the `mean` function, such as `na.rm`.
+#' 
+#' @return A data frame with one row for each species and a column for the mean of each `summary_vars`.
+#'
+#' @export
+
+summarize_by_species <- function(data, summary_vars = c("bill_length_mm", "flipper_length_mm", "body_mass_g"), ...) {
+  # Error trap to ensure that the provided data is a data frame
+  if (!is.data.frame(data)) {
+    stop("Input data must be a data frame.")
+  }
+  
+  if (!all(summary_vars %in% names(data))) {
+    stop("Not all specified summary variables are present in the data frame.")
+  }
+
+ # Group by species and compute the mean for specified variables
+  summarized_data <- data %>%
+    group_by(species) %>%
+    summarise(across(all_of(summary_vars), mean, na.rm = TRUE, .names = "mean_{.col}"), ...)
+
+  return(summarized_data)
+}
+
+```
+
+### Exercise 3: Examples
+
+#### Example 1: Default function to see if it works
+
+
+```{r}
+
+#Using the penguins data, I will use the function 
+result <- summarize_by_species(penguins)
+print(result)
+
+```
+
+#### Example 2: Fake Numeric Variable
+
+```{r}
+
+# Here I created a variable that is categorical but is actually represented with numbers
+penguins$fake_numeric <- as.factor(sample(1:5, nrow(penguins), replace = TRUE))
+
+# Trying to get the mean of this fake numeric variable using our function
+result_error <- summarize_by_species(penguins, summary_vars = c("bill_length_mm", "flipper_length_mm", "body_mass_g", "fake_numeric"))
+
+print(result_error)
+```
+
+### Exercise 4: Test the Function
+```{r}
+
+test_that("summarize_by_species behaves correctly", {
+
+# Test 1: Vector that has NAs
+  # Assuming 'body_mass_g' contains NAs
+  result1 <- summarize_by_species(penguins, summary_vars = "body_mass_g")
+  expect_equal(dim(result1), c(3, 2))
+  expect_true("species" %in% colnames(result1))
+  expect_true("mean_body_mass_g" %in% colnames(result1))
+  
+  # Test 2: Vector of a different type (using a character vector for numeric_category which should generate a warning or error)
+  penguins$char_col <- sample(letters, nrow(penguins), replace = TRUE)
+  expect_warning(summarize_by_species(penguins, summary_vars = "char_col"))
+  
+  # Test 3: Vector of length 0 (like numeric(0))
+  expect_error(summarize_by_species(penguins, summary_vars = "nonexistent_variable"))
+  
+})
+
